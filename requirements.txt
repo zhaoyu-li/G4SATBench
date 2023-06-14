@@ -1,0 +1,5 @@
+networkx
+python-sat==0.1.7.dev26
+tqdm
+kmeans_pytorch @ git+ssh://git@github.com/zhaoyu-li/kmeans_pytorch.git
+cnfgen @ git+ssh://git@github.com/zhaoyu-li/cnfgen.git
