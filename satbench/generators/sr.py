@@ -5,7 +5,7 @@ import random
 import networkx as nx
 
 from pysat.solvers import Cadical
-from ..utils.utils import write_dimacs_to, VIG, clean_clauses, hash_clauses
+from satbench.utils.utils import write_dimacs_to, VIG, clean_clauses, hash_clauses
 from tqdm import tqdm
 
 

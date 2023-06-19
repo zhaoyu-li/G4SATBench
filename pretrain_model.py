@@ -5,11 +5,11 @@ import os
 import sys
 import argparse
 
-from g4satbench.utils.options import add_model_options
-from g4satbench.utils.utils import set_seed, safe_log, safe_div
-from g4satbench.utils.logger import Logger
-from g4satbench.data.dataloader import get_dataloader
-from g4satbench.models.gnn import GNN
+from satbench.utils.options import add_model_options
+from satbench.utils.utils import set_seed, safe_log, safe_div
+from satbench.utils.logger import Logger
+from satbench.data.dataloader import get_dataloader
+from satbench.models.gnn import GNN
 
 
 def main():

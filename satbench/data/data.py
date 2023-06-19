@@ -1,7 +1,7 @@
 import torch
 
 from torch_geometric.data import Data
-from g4satbench.utils.utils import literal2l_idx, literal2v_idx
+from satbench.utils.utils import literal2l_idx, literal2v_idx
 
 
 class LCG(Data):

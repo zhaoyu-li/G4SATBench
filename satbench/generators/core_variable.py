@@ -7,7 +7,7 @@ import numpy as np
 import itertools
 
 from concurrent.futures.process import ProcessPoolExecutor
-from ..utils.utils import ROOT_DIR
+from satbench.utils.utils import ROOT_DIR
 
 
 class Generator:

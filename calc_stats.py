@@ -7,7 +7,7 @@ import glob
 import random
 
 from tqdm import tqdm
-from g4satbench.utils.utils import parse_cnf_file, VIG, VCG, LCG, clean_clauses
+from satbench.utils.utils import parse_cnf_file, VIG, VCG, LCG, clean_clauses
 from collections import defaultdict
 
 
