@@ -3,7 +3,7 @@ import numpy as np
 import random
 import itertools
 
-from satbench.data.dataset import SATDataset
+from g4satbench.data.dataset import SATDataset
 from torch_geometric.data import Batch
 from torch.utils.data import DataLoader
 

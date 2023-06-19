@@ -7,7 +7,7 @@ import numpy as np
 import networkx as nx
 
 from concurrent.futures.process import ProcessPoolExecutor
-from satbench.utils.utils import ROOT_DIR, parse_cnf_file, parse_proof_file, hash_clauses, write_dimacs_to
+from g4satbench.utils.utils import ROOT_DIR, parse_cnf_file, parse_proof_file, hash_clauses, write_dimacs_to
 
 
 class Generator:

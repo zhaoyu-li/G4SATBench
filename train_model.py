@@ -6,12 +6,12 @@ import sys
 import argparse
 
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
-from satbench.utils.options import add_model_options
-from satbench.utils.utils import set_seed, safe_log, safe_div
-from satbench.utils.logger import Logger
-from satbench.utils.format_print import FormatTable
-from satbench.data.dataloader import get_dataloader
-from satbench.models.gnn import GNN
+from g4satbench.utils.options import add_model_options
+from g4satbench.utils.utils import set_seed, safe_log, safe_div
+from g4satbench.utils.logger import Logger
+from g4satbench.utils.format_print import FormatTable
+from g4satbench.data.dataloader import get_dataloader
+from g4satbench.models.gnn import GNN
 from torch_scatter import scatter_sum
 
 

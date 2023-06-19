@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-from satbench.models.mlp import MLP
-from satbench.models.ln_lstm_cell import LayerNormBasicLSTMCell
+from g4satbench.models.mlp import MLP
+from g4satbench.models.ln_lstm_cell import LayerNormBasicLSTMCell
 from torch_scatter import scatter_sum, scatter_mean
 from kmeans_pytorch import kmeans
 
