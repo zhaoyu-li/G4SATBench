@@ -11,7 +11,6 @@ from satbench.utils.logger import Logger
 from satbench.utils.utils import set_seed
 from satbench.utils.format_print import FormatTable
 from satbench.data.dataloader import get_dataloader
-# from satbench.models.old_gnn import GNN
 from satbench.models.gnn import GNN
 from torch_scatter import scatter_sum
 
@@ -21,20 +20,13 @@ def main():
     parser.add_argument('task', type=str, choices=['satisfiability', 'assignment', 'core_variable'], help='Experiment task')
     parser.add_argument('test_dir', type=str, help='Directory with testing data')
     parser.add_argument('checkpoint', type=str, help='Checkpoint to be tested')
-    parser.add_argument('--test_splits', type=str, nargs='+', choices=['sat', 'unsat', 'augmented_sat', 'augmented_unsat', 'trimmed'], default=None, help='Validation splits')
+    parser.add_argument('--test_splits', type=str, nargs='+', choices=['sat', 'unsat', 'augmented_sat', 'augmented_unsat'], default=None, help='Validation splits')
     parser.add_argument('--test_sample_size', type=int, default=None, help='The number of instance in validation dataset')
-    parser.add_argument('--test_augment_ratio', type=float, default=None, help='The ratio between added clauses and all learned clauses')
     parser.add_argument('--label', type=str, choices=[None, 'satisfiability', 'core_variable'], default=None, help='Directory with validating data')
     parser.add_argument('--decoding', type=str, choices=['standard', '2-clustering', 'multiple_assignments'], default='standard', help='Decoding techniques for satisfying assignment prediction')
     parser.add_argument('--data_fetching', type=str, choices=['parallel', 'sequential'], default='parallel', help='Fetch data in sequential order or in parallel')
     parser.add_argument('--batch_size', type=int, default=512, help='Batch size')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
-    parser.add_argument('--dataset_transfer', action='store_true')
-    parser.add_argument('--ori_dataset', type=str)
-    parser.add_argument('--ite_transfer', action='store_true')
-    parser.add_argument('--ori_ite', type=int)
-    parser.add_argument('--difficulty_transfer', action='store_true')
-    parser.add_argument('--ori_difficulty')
 
     add_model_options(parser)
 
@@ -46,30 +38,12 @@ def main():
 
     difficulty, dataset = tuple(os.path.abspath(opts.test_dir).split(os.path.sep)[-3:-1])
     checkpoint_name = os.path.splitext(os.path.basename(opts.checkpoint))[0]
-    names = []
-    for split in opts.test_splits:
-        if 'augment' in split and opts.test_augment_ratio is not None:
-            names.append(split + str(opts.test_augment_ratio))
-        else:
-            names.append(split)
-    splits_name = '_'.join(names)
+    splits_name = '_'.join(opts.test_splits)
 
-    if opts.dataset_transfer:
-        assert opts.ori_dataset is not None
-        opts.log = os.path.join(opts.log_dir,
-                                f'eval_task={opts.task}_difficulty={difficulty}_ori={opts.ori_dataset}_tgt={dataset}_splits={splits_name}_n_iterations={opts.n_iterations}_checkpoint={checkpoint_name}.txt')
-    elif opts.ite_transfer:
-        assert opts.ori_ite is not None
-        opts.log = os.path.join(opts.log_dir, f'eval_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_ori_ite={opts.ori_ite}_tgt_ite={opts.n_iterations}_checkpoint={checkpoint_name}.txt')
-    elif opts.difficulty_transfer:
-        assert opts.ori_difficulty is not None
-        opts.log = os.path.join(opts.log_dir,
-                                f'eval_task={opts.task}_ori_difficulty={opts.ori_difficulty}_tgt_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_eval_ite_{opts.n_iterations}_checkpoint={checkpoint_name}.txt')
+    if opts.task == 'assignment':
+        opts.log = os.path.join(opts.log_dir, f'eval_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_decoding={opts.decoding}_n_iterations={opts.n_iterations}_checkpoint={checkpoint_name}.txt')
     else:
-        if opts.task == 'assignment':
-            opts.log = os.path.join(opts.log_dir, f'eval_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_decoding={opts.decoding}_n_iterations={opts.n_iterations}_checkpoint={checkpoint_name}.txt')
-        else:
-            opts.log = os.path.join(opts.log_dir, f'eval_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_n_iterations={opts.n_iterations}_checkpoint={checkpoint_name}.txt')
+        opts.log = os.path.join(opts.log_dir, f'eval_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_n_iterations={opts.n_iterations}_checkpoint={checkpoint_name}.txt')
 
     sys.stdout = Logger(opts.log, sys.stdout)
     sys.stderr = Logger(opts.log, sys.stderr)
@@ -79,7 +53,7 @@ def main():
 
     model = GNN(opts)
     model.to(opts.device)
-    test_loader = get_dataloader(opts.test_dir, opts.test_splits, opts.test_sample_size, opts.test_augment_ratio, opts, 'test')
+    test_loader = get_dataloader(opts.test_dir, opts.test_splits, opts.test_sample_size, opts, 'test')
 
     print('Loading model checkpoint from %s..' % opts.checkpoint)
     if opts.device.type == 'cpu':
@@ -108,11 +82,13 @@ def main():
                 pred = model(data)
                 label = data.y
                 format_table.update(pred, label)
+            
             elif opts.task == 'assignment':
                 c_size = data.c_size.sum().item()
                 c_batch = data.c_batch
                 l_edge_index = data.l_edge_index
                 c_edge_index = data.c_edge_index
+                
                 if opts.decoding == 'standard':
                     v_pred = model(data)
                     v_assign = (v_pred > 0.5).float()
@@ -120,6 +96,7 @@ def main():
                     c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
                     sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
                     test_cnt += sat_batch.sum().item()
+                
                 elif opts.decoding == '2-clustering':
                     v_assigns = model(data)
                     sat_batches = []
@@ -129,6 +106,7 @@ def main():
                         sat_batches.append((scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float())
                     sat_batch = torch.clamp(torch.stack(sat_batches, dim=0).sum(dim=0), max=1)
                     test_cnt += sat_batch.sum().item()
+                
                 else:
                     assert opts.decoding == 'multiple_assignments'
                     v_preds = model(data)
@@ -142,6 +120,7 @@ def main():
                     test_cnt += sat_batch.sum().item()
 
                 test_tot += batch_size
+            
             else:
                 assert opts.task == 'core_variable'
                 v_pred = model(data)
@@ -150,6 +129,7 @@ def main():
 
     if opts.task == 'satisfiability' or opts.task == 'core_variable':
         format_table.print_stats()
+    
     elif opts.task == 'assignment':
         test_acc = test_cnt / test_tot
         print('Testing accuracy: %f' % test_acc)

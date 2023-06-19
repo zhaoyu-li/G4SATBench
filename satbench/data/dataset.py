@@ -10,11 +10,10 @@ from satbench.data.data import construct_lcg, construct_vcg
 
 
 class SATDataset(Dataset):
-    def __init__(self, data_dir, splits, sample_size, augment_ratio, use_contrastive_learning, opts):
+    def __init__(self, data_dir, splits, sample_size, use_contrastive_learning, opts):
         self.opts = opts
         self.splits = splits
         self.sample_size = sample_size
-        self.augment_ratio = augment_ratio
         self.all_files = self._get_files(data_dir)
         self.split_len = self._get_split_len()
         self.all_labels = self._get_labels(data_dir)
@@ -75,13 +74,8 @@ class SATDataset(Dataset):
         return lens[0]
     
     def _get_file_name(self, split, cnf_filepath):
-        if 'augment' in split and self.augment_ratio is not None:
-            filename = os.path.splitext(os.path.basename(cnf_filepath))[0]
-            split_name = split + str(self.augment_ratio)
-            return f'{split_name}/{filename}_{self.opts.graph}.pt'
-        else:
-            filename = os.path.splitext(os.path.basename(cnf_filepath))[0]
-            return f'{split}/{filename}_{self.opts.graph}.pt'
+        filename = os.path.splitext(os.path.basename(cnf_filepath))[0]
+        return f'{split}/{filename}_{self.opts.graph}.pt'
     
     def _get_positive_indices(self):
         positive_indices = []
@@ -110,15 +104,15 @@ class SATDataset(Dataset):
         if os.path.exists(saved_path):
             return
         
-        if 'augment' in split and self.augment_ratio is not None:
-            n_vars, clauses, learned_clauses = parse_cnf_file(cnf_filepath, split_clauses=True)
-            clauses = clean_clauses(clauses)
-            clauses = clauses + learned_clauses[:int(len(learned_clauses) * self.augment_ratio)]
-        else:
-            n_vars, clauses, learned_clauses = parse_cnf_file(cnf_filepath, split_clauses=True)
-            clauses = clean_clauses(clauses)
+        n_vars, clauses, learned_clauses = parse_cnf_file(cnf_filepath, split_clauses=True)
+        
+        if len(learned_clauses) > 1000:
             clauses = clauses + learned_clauses[:1000]
-            
+        else:
+            clauses = clauses + learned_clauses
+        
+        clauses = clean_clauses(clauses)
+                    
         if self.opts.graph == 'lcg':
             data = construct_lcg(n_vars, clauses)
         elif self.opts.graph == 'vcg':
@@ -128,10 +122,7 @@ class SATDataset(Dataset):
     
     def process(self):
         for split in self.splits:
-            if 'augment' in split and self.augment_ratio is not None:
-                os.makedirs(os.path.join(self.processed_dir, split + str(self.augment_ratio)), exist_ok=True)
-            else:
-                os.makedirs(os.path.join(self.processed_dir, split), exist_ok=True)
+            os.makedirs(os.path.join(self.processed_dir, split), exist_ok=True)
         
         for split in self.splits:
             for cnf_filepath in self.all_files[split]:

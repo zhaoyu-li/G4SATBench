@@ -1,4 +1,0 @@
-lr, weight_decay n_iterations 8 16 32 64 models neurosat ggnn gin gcn
-dataset 3-sat sr
-
-python train_model.py satisfiability ~/scratch/satbench/easy/3-sat/train/ --train_splits sat unsat --valid_dir ~/scratch/satbench/easy/3-sat/valid/ --valid_splits sat unsat --label satisfiability --scheduler ReduceLROnPlateau --seed 0

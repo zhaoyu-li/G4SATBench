@@ -19,8 +19,8 @@ def main():
     parser.add_argument('--train_splits', type=str, nargs='+', choices=['sat', 'unsat', 'augmented_sat', 'augmented_unsat'], default=None, help='Category of the training data')
     parser.add_argument('--train_sample_size', type=int, default=None, help='The number of instance in training dataset')
     parser.add_argument('--train_augment_ratio', type=float, default=None, help='The ratio between added clauses and all learned clauses')
-    parser.add_argument('--use_contrastive_learning', type=bool, default=True, help='Use contrastive learning')
-    parser.add_argument('--label', type=str, choices=['satisfiability'], default='satisfiability', help='Label')
+    parser.add_argument('--use_contrastive_learning', type=bool, choices=[True], default=True)
+    parser.add_argument('--label', type=str, choices=None, default=None, help='Label')
     parser.add_argument('--data_fetching', type=str, choices=['parallel', 'sequential'], default='parallel', help='Fetch data in sequential order or in parallel')
     parser.add_argument('--save_model_epochs', type=int, default=1, help='Number of epochs between model savings')
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
@@ -29,25 +29,19 @@ def main():
     parser.add_argument('--weight_decay', type=float, default=1e-8, help='L2 regularization weight')
     parser.add_argument('--clip_norm', type=float, default=1.0, help='Clipping norm')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
-    parser.add_argument('--run_dir', type=str, default='/network/scratch/z/zhaoyu.li/runs/')
 
     add_model_options(parser)
 
     opts = parser.parse_args()
 
     set_seed(opts.seed)
-    difficulty, dataset = tuple(os.path.abspath(opts.train_dir).split(os.path.sep)[-3:-1])
-    names = []
-    for split in opts.train_splits:
-        if 'augment' in split and opts.train_augment_ratio is not None:
-            names.append(split + str(opts.train_augment_ratio))
-        else:
-            names.append(split)
-    splits_name = '_'.join(names)
-    exp_name = f'pretraining_difficulty={difficulty}_dataset={dataset}_splits={splits_name}/' + \
-        f'graph={opts.graph}_init_emb={opts.init_emb}_model={opts.model}_n_iterations={opts.n_iterations}_seed={opts.seed}_lr={opts.lr}_weight_decay={opts.weight_decay}'
 
-    opts.log_dir = os.path.join(os.path.expanduser(opts.run_dir), exp_name)
+    difficulty, dataset = tuple(os.path.abspath(opts.train_dir).split(os.path.sep)[-3:-1])
+    splits_name = '_'.join(train_splits)
+    exp_name = f'pretrain_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}/' + \
+        f'graph={opts.graph}_init_emb={opts.init_emb}_model={opts.model}_n_iterations={opts.n_iterations}_lr={opts.lr}_weight_decay={opts.weight_decay}_seed={opts.seed}'
+
+    opts.log_dir = os.path.join('runs', exp_name)
     opts.checkpoint_dir = os.path.join(opts.log_dir, 'checkpoints')
 
     os.makedirs(opts.log_dir, exist_ok=True)
@@ -64,7 +58,7 @@ def main():
     model.to(opts.device)
 
     optimizer = optim.Adam(model.parameters(), lr=opts.lr, weight_decay=opts.weight_decay)
-    train_loader = get_dataloader(opts.train_dir, opts.train_splits, opts.train_sample_size, opts.train_augment_ratio, opts, 'train', opts.use_contrastive_learning)
+    train_loader = get_dataloader(opts.train_dir, opts.train_splits, opts.train_sample_size, opts, 'train', self.opts.use_contrastive_learning) # use contrastive learning
 
     best_loss = float('inf')
     for epoch in range(opts.epochs):
@@ -99,6 +93,7 @@ def main():
                 'optimizer': optimizer.state_dict()},
                 os.path.join(opts.checkpoint_dir, 'model_%d.pt' % epoch)
             )
+        
         if train_loss < best_loss:
             best_loss = train_loss
             torch.save({

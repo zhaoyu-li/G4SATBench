@@ -21,16 +21,13 @@ def main():
     parser.add_argument('train_dir', type=str, help='Directory with training data')
     parser.add_argument('--train_splits', type=str, nargs='+', choices=['sat', 'unsat', 'augmented_sat', 'augmented_unsat'], default=None, help='Category of the training data')
     parser.add_argument('--train_sample_size', type=int, default=None, help='The number of instance in training dataset')
-    parser.add_argument('--train_augment_ratio', type=float, default=None, help='The ratio between added clauses and all learned clauses')
-    parser.add_argument('--checkpoint', type=str, default=None, help='checkpoint')
-    parser.add_argument('--use_contrastive_learning', action='store_true', help='Use contrastive learning')
+    parser.add_argument('--checkpoint', type=str, default=None, help='pretrained checkpoint')
     parser.add_argument('--valid_dir', type=str, default=None, help='Directory with validating data')
     parser.add_argument('--valid_splits', type=str, nargs='+', choices=['sat', 'unsat', 'augmented_sat', 'augmented_unsat'], default=None, help='Category of the validating data')
     parser.add_argument('--valid_sample_size', type=int, default=None, help='The number of instance in validation dataset')
-    parser.add_argument('--valid_augment_ratio', type=float, default=None, help='The ratio between added clauses and all learned clauses')
     parser.add_argument('--label', type=str, choices=[None, 'satisfiability', 'assignment', 'core_variable'], default=None, help='Label')
     parser.add_argument('--data_fetching', type=str, choices=['parallel', 'sequential'], default='parallel', help='Fetch data in sequential order or in parallel')
-    parser.add_argument('--loss', type=str, choices=[None, 'unsupervised', 'unsupervisedv2', 'supervised'], default=None, help='Loss type for assignment prediction')
+    parser.add_argument('--loss', type=str, choices=[None, 'supervised', 'unsupervised_1', 'unsupervised_2'], default=None, help='Loss type for assignment prediction')
     parser.add_argument('--save_model_epochs', type=int, default=1, help='Number of epochs between model savings')
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs during training')
@@ -42,25 +39,24 @@ def main():
     parser.add_argument('--lr_patience', type=int, default=10, help='Learning rate patience')
     parser.add_argument('--clip_norm', type=float, default=1.0, help='Clipping norm')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
-    parser.add_argument('--run_dir', type=str, default='/network/scratch/z/zhaoyu.li/runs/')
 
     add_model_options(parser)
 
     opts = parser.parse_args()
 
     set_seed(opts.seed)
-    difficulty, dataset = tuple(os.path.abspath(opts.train_dir).split(os.path.sep)[-3:-1])
-    names = []
-    for split in opts.train_splits:
-        if 'augment' in split and opts.train_augment_ratio is not None:
-            names.append(split + str(opts.train_augment_ratio))
-        else:
-            names.append(split)
-    splits_name = '_'.join(names)
-    exp_name = f'task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_label={opts.label}_loss={opts.loss}/' + \
-        f'graph={opts.graph}_init_emb={opts.init_emb}_model={opts.model}_n_iterations={opts.n_iterations}_seed={opts.seed}_lr={opts.lr}_weight_decay={opts.weight_decay}'
 
-    opts.log_dir = os.path.join(os.path.expanduser(opts.run_dir), exp_name)
+    difficulty, dataset = tuple(os.path.abspath(opts.train_dir).split(os.path.sep)[-3:-1])
+    splits_name = '_'.join(opts.train_splits)
+
+    if opts.task == 'assignment':
+        exp_name = f'train_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_label={opts.label}_loss={opts.loss}/' + \
+            f'graph={opts.graph}_init_emb={opts.init_emb}_model={opts.model}_n_iterations={opts.n_iterations}_lr={opts.lr}_weight_decay={opts.weight_decay}_seed={opts.seed}'
+    else:
+        exp_name = f'train_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}/' + \
+            f'graph={opts.graph}_init_emb={opts.init_emb}_model={opts.model}_n_iterations={opts.n_iterations}_lr={opts.lr}_weight_decay={opts.weight_decay}_seed={opts.seed}'
+
+    opts.log_dir = os.path.join('runs', exp_name)
     opts.checkpoint_dir = os.path.join(opts.log_dir, 'checkpoints')
 
     os.makedirs(opts.log_dir, exist_ok=True)
@@ -86,10 +82,10 @@ def main():
         model.load_state_dict(checkpoint['state_dict'], strict=False)
 
     optimizer = optim.Adam(model.parameters(), lr=opts.lr, weight_decay=opts.weight_decay)
-    train_loader = get_dataloader(opts.train_dir, opts.train_splits, opts.train_sample_size, opts.train_augment_ratio, opts, 'train', opts.use_contrastive_learning)
+    train_loader = get_dataloader(opts.train_dir, opts.train_splits, opts.train_sample_size, opts, 'train')
 
     if opts.valid_dir is not None:
-        valid_loader = get_dataloader(opts.valid_dir, opts.valid_splits, opts.valid_sample_size, opts.valid_augment_ratio, opts, 'valid')
+        valid_loader = get_dataloader(opts.valid_dir, opts.valid_splits, opts.valid_sample_size, opts, 'valid')
     else:
         valid_loader = None
 
@@ -122,16 +118,10 @@ def main():
             batch_size = data.num_graphs
 
             if opts.task == 'satisfiability':
-                if opts.use_contrastive_learning:
-                    sim = model(data)
-                    positive_index = data.positive_index
-                    num_pairs = batch_size // 2
-                    loss = -safe_log(sim[positive_index] / sim.sum(dim=1)).mean()
-                else:
-                    pred = model(data)
-                    label = data.y
-                    loss = F.binary_cross_entropy(pred, label)
-                    format_table.update(pred, label)
+                pred = model(data)
+                label = data.y
+                loss = F.binary_cross_entropy(pred, label)
+                format_table.update(pred, label)
 
             elif opts.task == 'assignment':
                 c_size = data.c_size.sum().item()
@@ -144,13 +134,8 @@ def main():
                 if opts.loss == 'supervised':
                     label = data.y
                     loss = F.binary_cross_entropy(v_pred, label)
-                elif opts.loss == 'unsupervised':
-                    l_pred = torch.stack([v_pred, 1 - v_pred], dim=1).reshape(-1)
-                    l_pred_aggr = scatter_sum(safe_log(1 - l_pred[l_edge_index]), c_edge_index, dim=0, dim_size=c_size)
-                    c_loss = -safe_log(1 - l_pred_aggr.exp())
-                    loss = scatter_sum(c_loss, c_batch, dim=0, dim_size=batch_size).mean()
 
-                elif opts.loss == 'unsupervisedv2':
+                elif opts.loss == 'unsupervised_1':
                     l_pred = torch.stack([v_pred, 1 - v_pred], dim=1).reshape(-1)
                     s_max_denom = (l_pred[l_edge_index] / 0.1).exp()
                     s_max_nom = l_pred[l_edge_index] * s_max_denom
@@ -167,6 +152,12 @@ def main():
                     score = safe_div(s_nom, s_denom)
                     loss = (1 - score).mean()
 
+                elif opts.loss == 'unsupervised_2':
+                    l_pred = torch.stack([v_pred, 1 - v_pred], dim=1).reshape(-1)
+                    l_pred_aggr = scatter_sum(safe_log(1 - l_pred[l_edge_index]), c_edge_index, dim=0, dim_size=c_size)
+                    c_loss = -safe_log(1 - l_pred_aggr.exp())
+                    loss = scatter_sum(c_loss, c_batch, dim=0, dim_size=batch_size).mean()
+                    
                 v_assign = (v_pred > 0.5).float()
                 l_assign = torch.stack([v_assign, 1 - v_assign], dim=1).reshape(-1)
                 c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
@@ -226,6 +217,7 @@ def main():
                         label = data.y
                         loss = F.binary_cross_entropy(pred, label)
                         format_table.update(pred, label)
+                    
                     elif opts.task == 'assignment':
                         c_size = data.c_size.sum().item()
                         c_batch = data.c_batch
@@ -237,12 +229,8 @@ def main():
                         if opts.loss == 'supervised':
                             label = data.y
                             loss = F.binary_cross_entropy(v_pred, label)
-                        elif opts.loss == 'unsupervised':
-                            l_pred = torch.stack([v_pred, 1 - v_pred], dim=1).reshape(-1)
-                            l_pred_aggr = scatter_sum(safe_log(1 - l_pred[l_edge_index]), c_edge_index, dim=0, dim_size=c_size)
-                            c_loss = -safe_log(1 - l_pred_aggr.exp())
-                            loss = scatter_sum(c_loss, c_batch, dim=0, dim_size=batch_size).mean()
-                        elif opts.loss == 'unsupervisedv2':
+                        
+                        elif opts.loss == 'unsupervised_1':
                             l_pred = torch.stack([v_pred, 1 - v_pred], dim=1).reshape(-1)
                             s_max_denom = (l_pred[l_edge_index] / 0.1).exp()
                             s_max_nom = l_pred[l_edge_index] * s_max_denom
@@ -259,11 +247,18 @@ def main():
                             score = safe_div(s_nom, s_denom)
                             loss = (1 - score).mean()
 
+                        elif opts.loss == 'unsupervised_2':
+                            l_pred = torch.stack([v_pred, 1 - v_pred], dim=1).reshape(-1)
+                            l_pred_aggr = scatter_sum(safe_log(1 - l_pred[l_edge_index]), c_edge_index, dim=0, dim_size=c_size)
+                            c_loss = -safe_log(1 - l_pred_aggr.exp())
+                            loss = scatter_sum(c_loss, c_batch, dim=0, dim_size=batch_size).mean()
+
                         v_assign = (v_pred > 0.5).float()
                         l_assign = torch.stack([v_assign, 1 - v_assign], dim=1).reshape(-1)
                         c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
                         sat_batch = (scatter_sum(c_sat, c_batch, dim=0, dim_size=batch_size) == data.c_size).float()
                         valid_cnt += sat_batch.sum().item()
+                    
                     else:
                         assert opts.task == 'core_variable'
                         v_pred = model(data)

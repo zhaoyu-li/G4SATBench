@@ -11,6 +11,3 @@ def add_model_options(parser):
     
     parser.add_argument('--n_mlp_layers', type=int, default=2, help='Number of layers in all MLPs')
     parser.add_argument('--activation', type=str, default='relu', help='Activation function in all MLPs')
-
-    parser.add_argument('--satisfiability_readout', type=str, choices=['literal', 'variable', 'clause'], default='literal', help='Readout for satisfiability prediction')
-    parser.add_argument('--multiple_assignments', action='store_true', help='Predict multiple assignments')

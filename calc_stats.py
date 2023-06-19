@@ -13,8 +13,6 @@ from collections import defaultdict
 
 terms = ['n_vars', 'n_clauses', 'vig-clustering_coefficient', 'vig-modularity', 'vcg-modularity', 'lcg-modularity']
 
-# terms = ['n_vars', 'n_clauses']
-
 def calc_stats(f):
     n_vars, clauses = parse_cnf_file(f)
     clauses = clean_clauses(clauses)
@@ -22,16 +20,12 @@ def calc_stats(f):
     vcg = VCG(n_vars, clauses)
     lcg = LCG(n_vars, clauses)
 
-    is_connected_vig = nx.is_connected(vig)
-    is_connected_vcg = nx.is_connected(vcg)
-    is_connected_lcg = nx.is_connected(lcg)
-
     return {
         'n_vars': n_vars,
         'n_clauses': len(clauses),
-        'vig-clustering_coefficient': nx.average_clustering(vig) if is_connected_vig else -1,
-        'vig-modularity': nx_comm.modularity(vig, nx_comm.louvain_communities(vig)) if is_connected_vig else -1,
-        'vcg-modularity': nx_comm.modularity(vcg, nx_comm.louvain_communities(vcg)) if is_connected_vcg else -1,
+        'vig-clustering_coefficient': nx.average_clustering(vig),
+        'vig-modularity': nx_comm.modularity(vig, nx_comm.louvain_communities(vig)),
+        'vcg-modularity': nx_comm.modularity(vcg, nx_comm.louvain_communities(vcg)),
         'lcg-modularity': nx_comm.modularity(lcg, nx_comm.louvain_communities(lcg)),
     }
 
@@ -39,7 +33,6 @@ def calc_stats(f):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('data_dir', type=str, help='Directory with sat data')
-    parser.add_argument('--num', type=int, default=None)
     opts = parser.parse_args()
     print(opts)
 
@@ -49,9 +42,6 @@ def main():
     all_files = [os.path.abspath(f) for f in all_files if 'augmented' not in f]
 
     stats = defaultdict(int)
-
-    if opts.num is not None:
-        all_files = random.sample(all_files, opts.num)
 
     for f in tqdm(all_files):
         s = calc_stats(f)

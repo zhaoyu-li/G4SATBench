@@ -159,10 +159,8 @@ class GNN_LCG(nn.Module):
         super(GNN_LCG, self).__init__()
         self.opts = opts
         if self.opts.init_emb == 'learned':
-            self.l_init = nn.Parameter(torch.empty(1, self.opts.dim))
-            nn.init.kaiming_normal_(self.l_init)
-            self.c_init = nn.Parameter(torch.empty(1, self.opts.dim))
-            nn.init.kaiming_normal_(self.c_init)
+            self.l_init = nn.Parameter(torch.randn(1, self.opts.dim) * math.sqrt(2 / self.opts.dim))
+            self.c_init = nn.Parameter(torch.randn(1, self.opts.dim) * math.sqrt(2 / self.opts.dim))
         
         if self.opts.model == 'neurosat':
             self.gnn = NeuroSAT(self.opts)
@@ -179,7 +177,7 @@ class GNN_LCG(nn.Module):
             # self.opts.task == 'assignment' or self.opts.task == 'core_variable'
             self.l_readout = MLP(self.opts.n_mlp_layers, self.opts.dim * 2, self.opts.dim, 1, self.opts.activation)
         
-        if hasattr(self.opts, 'use_contrastive_learning') and self.opts.use_contrastive_learning:
+        if hasattr(self.opts, 'use_contrastive_learning'):
             self.tau = 0.5
             self.proj = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
     
@@ -195,27 +193,16 @@ class GNN_LCG(nn.Module):
             c_emb = (self.c_init).repeat(c_size, 1)
         else:
             # self.opts.init_emb == 'random'
-            # l_init = torch.randn(1, self.opts.dim, device=self.opts.device) * math.sqrt(2 / self.opts.dim)
-            # c_init = torch.randn(1, self.opts.dim, device=self.opts.device) * math.sqrt(2 / self.opts.dim)
-            # l_emb = l_init.repeat(l_size, 1)
-            # c_emb = c_init.repeat(c_size, 1)
             l_emb = torch.randn(l_size, self.opts.dim, device=self.opts.device) * math.sqrt(2 / self.opts.dim)
             c_emb = torch.randn(c_size, self.opts.dim, device=self.opts.device) * math.sqrt(2 / self.opts.dim)
 
         l_embs, c_embs = self.gnn(l_size, c_size, l_edge_index, c_edge_index, l_emb, c_emb)
         
         if self.opts.task == 'satisfiability':
-            if self.opts.satisfiability_readout == 'clause':
-                c_batch = data.c_batch
-                g_emb = scatter_mean(c_embs[-1], c_batch, dim=0, dim_size=batch_size)
-                g_logit = self.g_readout(g_emb).reshape(-1)
-            else:
-                # self.opts.satisfiability_readout == 'literal'
-                l_batch = data.l_batch
-                g_emb = scatter_mean(l_embs[-1], l_batch, dim=0, dim_size=batch_size)
-                g_logit = self.g_readout(g_emb).reshape(-1)
+            l_batch = data.l_batch
+            g_emb = scatter_mean(l_embs[-1], l_batch, dim=0, dim_size=batch_size)
             
-            if self.training and self.opts.use_contrastive_learning:
+            if hasattr(self.opts, 'use_contrastive_learning'):
                 g_emb = self.proj(g_emb)
                 h = F.normalize(g_emb, dim=1)
                 sim = torch.exp(torch.mm(h, h.t()) / self.tau)
@@ -224,12 +211,14 @@ class GNN_LCG(nn.Module):
                 sim = sim * mask
                 return sim
             else:
+                g_logit = self.g_readout(g_emb).reshape(-1)
                 return torch.sigmoid(g_logit)
 
         elif self.opts.task == 'assignment':
             if not hasattr(self.opts, 'decoding') or self.opts.decoding == 'standard':
                 v_logit = self.l_readout(l_embs[-1].reshape(-1, self.opts.dim * 2)).reshape(-1)
                 return torch.sigmoid(v_logit)
+            
             elif self.opts.decoding == '2-clustering':
                 assignments = []
                 for iter in range(self.opts.n_iterations+1):
@@ -259,6 +248,7 @@ class GNN_LCG(nn.Module):
                     
                     assignments.append([v_assign1, v_assign2])
                 return assignments
+            
             else:
                 assert self.opts.decoding == 'multiple_assignments'
                 v_assigns = []
@@ -266,6 +256,7 @@ class GNN_LCG(nn.Module):
                     v_logit = self.l_readout(l_emb.reshape(-1, self.opts.dim * 2)).reshape(-1)
                     v_assigns.append(torch.sigmoid(v_logit))
                 return v_assigns
+        
         else:
             assert self.opts.task == 'core_variable'
             v_logit = self.l_readout(l_embs[-1].reshape(-1, self.opts.dim * 2)).reshape(-1)
@@ -415,10 +406,8 @@ class GNN_VCG(nn.Module):
         super(GNN_VCG, self).__init__()
         self.opts = opts
         if self.opts.init_emb == 'learned':
-            self.v_init = nn.Parameter(torch.empty(1, self.opts.dim))
-            nn.init.kaiming_normal_(self.v_init)
-            self.c_init = nn.Parameter(torch.empty(1, self.opts.dim))
-            nn.init.kaiming_normal_(self.c_init)
+            self.v_init = nn.Parameter(torch.randn(1, self.opts.dim) * math.sqrt(2 / self.opts.dim))
+            self.c_init = nn.Parameter(torch.randn(1, self.opts.dim) * math.sqrt(2 / self.opts.dim))
         
         if self.opts.model == 'ggnn':
             self.gnn = GGNN_VCG(self.opts)
@@ -433,7 +422,7 @@ class GNN_VCG(nn.Module):
             # self.opts.task == 'assignment' or self.opts.task == 'core_variable'
             self.v_readout = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, 1, self.opts.activation)
 
-        if hasattr(self.opts, 'use_contrastive_learning') and self.opts.use_contrastive_learning:
+        if hasattr(self.opts, 'use_contrastive_learning'):
             self.tau = 0.5
             self.proj = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
     
@@ -452,28 +441,16 @@ class GNN_VCG(nn.Module):
             c_emb = (self.c_init).repeat(c_size, 1)
         else:
             # self.opts.init_emb == 'random'
-            # v_init = torch.randn(1, self.opts.dim, device=self.opts.device) * math.sqrt(2 / self.opts.dim)
-            # c_init = torch.randn(1, self.opts.dim, device=self.opts.device) * math.sqrt(2 / self.opts.dim)
-            # v_emb = v_init.repeat(v_size, 1)
-            # c_emb = c_init.repeat(c_size, 1)
-
             v_emb = torch.randn(v_size, self.opts.dim, device=self.opts.device) * math.sqrt(2 / self.opts.dim)
             c_emb = torch.randn(c_size, self.opts.dim, device=self.opts.device) * math.sqrt(2 / self.opts.dim)
 
         v_embs, c_embs = self.gnn(v_size, c_size, v_edge_index, c_edge_index, p_edge_index, n_edge_index, v_emb, c_emb)
         
         if self.opts.task == 'satisfiability':
-            if self.opts.satisfiability_readout == 'clause':
-                c_batch = data.c_batch
-                g_emb = scatter_mean(c_embs[-1], c_batch, dim=0, dim_size=batch_size)
-                g_logit = self.g_readout(g_emb).reshape(-1)
-            else:
-                # self.opts.satisfiability_readout == 'variable'
-                v_batch = data.v_batch
-                g_emb = scatter_mean(v_embs[-1], v_batch, dim=0, dim_size=batch_size)
-                g_logit = self.g_readout(g_emb).reshape(-1)
-
-            if self.training and self.opts.use_contrastive_learning:
+            v_batch = data.v_batch
+            g_emb = scatter_mean(v_embs[-1], v_batch, dim=0, dim_size=batch_size)
+            
+            if hasattr(self.opts, 'use_contrastive_learning'):
                 g_emb = self.proj(g_emb)
                 h = F.normalize(g_emb, dim=1)
                 sim = torch.exp(torch.mm(h, h.t()) / self.tau)
@@ -482,6 +459,7 @@ class GNN_VCG(nn.Module):
                 sim = sim * mask
                 return sim
             else:
+                g_logit = self.g_readout(g_emb).reshape(-1)
                 return torch.sigmoid(g_logit)
 
         elif self.opts.task == 'assignment':
@@ -495,6 +473,7 @@ class GNN_VCG(nn.Module):
                     v_logit = self.v_readout(v_emb).reshape(-1)
                     v_assigns.append(torch.sigmoid(v_logit))
                 return v_assigns
+        
         else:
             assert self.opts.task == 'core_variable'
             v_logit = self.v_readout(v_embs[-1]).reshape(-1)

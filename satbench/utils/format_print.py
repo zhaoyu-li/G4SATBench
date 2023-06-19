@@ -21,10 +21,10 @@ class FormatTable:
     def print_stats(self):
         formatted_table = '''       
 +--------------------+---------------+-----------------+
-|                    |  Labeled sat  |  Labeled unsat  |
+|                    |   Labeled 1   |    Labeled 0    |
 +--------------------+---------------+-----------------+
-| Predicted sat      |{:15d}|{:17d}|
-| Predicted unsat    |{:15d}|{:17d}|
+| Predicted 1        |{:15d}|{:17d}|
+| Predicted 0        |{:15d}|{:17d}|
 +--------------------+---------------+-----------------+
 | Sensitivity (TPR)  |{:33.6f}|
 +--------------------+---------------+-----------------+
