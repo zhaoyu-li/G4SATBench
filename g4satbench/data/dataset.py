@@ -5,8 +5,8 @@ import pickle
 import itertools
 
 from torch_geometric.data import Dataset
-from satbench.utils.utils import parse_cnf_file, clean_clauses
-from satbench.data.data import construct_lcg, construct_vcg
+from g4satbench.utils.utils import parse_cnf_file, clean_clauses
+from g4satbench.data.data import construct_lcg, construct_vcg
 
 
 class SATDataset(Dataset):

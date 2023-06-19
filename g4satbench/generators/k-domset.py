@@ -6,7 +6,7 @@ import networkx as nx
 
 from pysat.solvers import Cadical
 from cnfgen import DominatingSet
-from satbench.utils.utils import write_dimacs_to, VIG, clean_clauses, hash_clauses
+from g4satbench.utils.utils import write_dimacs_to, VIG, clean_clauses, hash_clauses
 from tqdm import tqdm
 
 sat_cnt = 0
