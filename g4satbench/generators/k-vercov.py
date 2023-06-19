@@ -6,13 +6,8 @@ import networkx as nx
 
 from pysat.solvers import Cadical
 from cnfgen import VertexCoverFormula
-from g4satbench.utils.utils import write_dimacs_to, VIG, clean_clauses, hash_clauses
+from ..utils.utils import write_dimacs_to, VIG, clean_clauses, hash_clauses
 from tqdm import tqdm
-from scipy.optimize import fsolve
-
-
-sat_cnt = 0
-unsat_cnt = 0
 
 
 class Generator:
@@ -40,9 +35,7 @@ class Generator:
         k = random.randint(self.opts.min_k, self.opts.max_k)
         
         while not sat or not unsat:
-            v = random.randint(self.opts.min_v, self.opts.max_v)
-            if v - k <= 2:
-                v = v + 1
+            v = random.randint(max(self.opts.min_v, k + 2), self.opts.max_v)
             com_k = v - k
             p = pow(1/math.comb(v,com_k), 2/(com_k*(com_k-1)))
             com_graph = nx.generators.erdos_renyi_graph(v, p=p)
@@ -68,15 +61,11 @@ class Generator:
             solver = Cadical(bootstrap_with=clauses)
             
             if solver.solve():
-                global sat_cnt 
-                sat_cnt += 1
                 if not sat:
                     sat = True
                     self.hash_list.append(h)
                     write_dimacs_to(n_vars, clauses, os.path.join(sat_out_dir, '%.5d.cnf' % (i)))
             else:
-                global unsat_cnt
-                unsat_cnt += 1
                 if not unsat:
                     unsat = True
                     self.hash_list.append(h)
@@ -105,9 +94,6 @@ def main():
 
     generator = Generator(opts)
     generator.run()
-
-    print(sat_cnt)
-    print(unsat_cnt)
 
 
 if __name__ == '__main__':
