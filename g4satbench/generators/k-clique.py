@@ -9,8 +9,6 @@ from cnfgen import CliqueFormula
 from g4satbench.utils.utils import write_dimacs_to, VIG, clean_clauses, hash_clauses
 from tqdm import tqdm
 
-sat_cnt = 0
-unsat_cnt = 0
 
 class Generator:
     def __init__(self, opts):
@@ -63,15 +61,11 @@ class Generator:
             solver = Cadical(bootstrap_with=clauses)
 
             if solver.solve():
-                global sat_cnt
-                sat_cnt += 1
                 if not sat:
                     sat = True
                     self.hash_list.append(h)
                     write_dimacs_to(n_vars, clauses, os.path.join(sat_out_dir, '%.5d.cnf' % (i)))
             else:
-                global unsat_cnt
-                unsat_cnt += 1
                 if not unsat:
                     unsat = True
                     self.hash_list.append(h)
@@ -100,9 +94,6 @@ def main():
 
     generator = Generator(opts)
     generator.run()
-
-    print(sat_cnt)
-    print(unsat_cnt)
 
 
 if __name__ == '__main__':

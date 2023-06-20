@@ -23,7 +23,7 @@ class Generator:
                 unsat_out_dir = os.path.join(os.path.abspath(self.opts.out_dir), f'{split}/unsat')
                 os.makedirs(sat_out_dir, exist_ok=True)
                 os.makedirs(unsat_out_dir, exist_ok=True)
-                print(f'Generating ca {split} setg4satbench..')
+                print(f'Generating ca {split} set...')
                 for i in tqdm(range(n_instances)):
                     self.generate(i, sat_out_dir, unsat_out_dir)
 
