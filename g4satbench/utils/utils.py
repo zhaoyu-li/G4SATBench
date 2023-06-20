@@ -7,7 +7,7 @@ import networkx as nx
 from itertools import combinations
 
 
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT_DIR = os.getcwd()
 
 
 def write_dimacs_to(n_vars, clauses, out_path, learned_clauses=None):
