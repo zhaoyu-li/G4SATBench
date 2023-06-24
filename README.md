@@ -81,5 +81,5 @@ python eval_model.py satisfiability ~/g4satbench/easy/3-sat/test/ runs/pretrain_
 python train_model.py assignment ~/g4satbench/medium/sr/train/ --train_splits sat --valid_dir ~/g4satbench/medium/sr/valid/ --valid_splits sat --loss unsupervised_2 --graph lcg --model neurosat --init_emb random --n_iterations 32  --lr 1e-04 --weight_decay 1e-08 --scheduler ReduceLROnPlateau --batch_size 128 --seed 123
 
 # evaluate NeuroSAT on the medium SR dataset with random initialization for satisfying assignment prediction
-python eval_model.py assignment ~/g4satbench/medium/sr/test/ runs/train_task\=assignment_difficulty\=easy_dataset\=ca_splits\=sat_label=None_loss=unsupervised_2/graph=vcg_init_emb=learned_model=ggnn_n_iterations=32_lr=1e-04_weight_decay=1e-08_seed=123/checkpoints/model_best.pt --test_splits sat --decoding standard --graph vcg --model ggnn --n_iterations 32 --batch_size 512
+python eval_model.py assignment ~/g4satbench/medium/sr/test/ runs/train_task\=assignment_difficulty\=medium_dataset\=sr_splits\=sat_label=None_loss=unsupervised_2/graph=lcg_init_emb=random_model=neurosat_n_iterations=32_lr=1e-04_weight_decay=1e-08_seed=123/checkpoints/model_best.pt --test_splits sat --decoding standard --graph lcg --model neurosat --n_iterations 32 --batch_size 512
 ```
