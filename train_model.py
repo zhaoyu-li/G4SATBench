@@ -51,12 +51,16 @@ def main():
 
     if opts.task == 'assignment':
         exp_name = f'train_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_label={opts.label}_loss={opts.loss}/' + \
-            f'graph={opts.graph}_init_emb={opts.init_emb}_model={opts.model}_n_iterations={opts.n_iterations}_lr={opts.lr:.1e}_weight_decay={opts.weight_decay:.1e}_seed={opts.seed}'
+            f'graph={opts.graph}_init_emb={opts.init_emb}_model={opts.model}_n_iterations={opts.n_iterations}_lr={opts.lr:.0e}_weight_decay={opts.weight_decay:.0e}_seed={opts.seed}'
     else:
         exp_name = f'train_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}/' + \
-            f'graph={opts.graph}_init_emb={opts.init_emb}_model={opts.model}_n_iterations={opts.n_iterations}_lr={opts.lr:.1e}_weight_decay={opts.weight_decay:.1e}_seed={opts.seed}'
+            f'graph={opts.graph}_init_emb={opts.init_emb}_model={opts.model}_n_iterations={opts.n_iterations}_lr={opts.lr:.0e}_weight_decay={opts.weight_decay:.0e}_seed={opts.seed}'
+    
+    if opts.checkpoint is not None:
+        opts.log_dir = os.path.abspath(os.path.join(opts.checkpoint, '../../', exp_name))
+    else:
+        opts.log_dir = os.path.join('runs', exp_name)
 
-    opts.log_dir = os.path.join('runs', exp_name)
     opts.checkpoint_dir = os.path.join(opts.log_dir, 'checkpoints')
 
     os.makedirs(opts.log_dir, exist_ok=True)

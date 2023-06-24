@@ -37,7 +37,7 @@ def main():
     set_seed(opts.seed)
 
     difficulty, dataset = tuple(os.path.abspath(opts.train_dir).split(os.path.sep)[-3:-1])
-    splits_name = '_'.join(train_splits)
+    splits_name = '_'.join(opts.train_splits)
     exp_name = f'pretrain_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}/' + \
         f'graph={opts.graph}_init_emb={opts.init_emb}_model={opts.model}_n_iterations={opts.n_iterations}_lr={opts.lr}_weight_decay={opts.weight_decay}_seed={opts.seed}'
 
@@ -58,12 +58,12 @@ def main():
     model.to(opts.device)
 
     optimizer = optim.Adam(model.parameters(), lr=opts.lr, weight_decay=opts.weight_decay)
-    train_loader = get_dataloader(opts.train_dir, opts.train_splits, opts.train_sample_size, opts, 'train', self.opts.use_contrastive_learning) # use contrastive learning
+    train_loader = get_dataloader(opts.train_dir, opts.train_splits, opts.train_sample_size, opts, 'train', opts.use_contrastive_learning) # use contrastive learning
 
     best_loss = float('inf')
     for epoch in range(opts.epochs):
         print('EPOCH #%d' % epoch)
-        print('Training...')
+        print('Pretraining...')
         train_loss = 0
         train_tot = 0
 
@@ -84,7 +84,7 @@ def main():
             optimizer.step()
 
         train_loss /= train_tot
-        print('Training LR: %f, Training loss: %f' % (optimizer.param_groups[0]['lr'], train_loss))
+        print('Pretraining LR: %f, Pretraining loss: %f' % (optimizer.param_groups[0]['lr'], train_loss))
 
         if epoch % opts.save_model_epochs == 0:
             torch.save({

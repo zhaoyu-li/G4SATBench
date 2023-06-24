@@ -220,34 +220,31 @@ class GNN_LCG(nn.Module):
                 return torch.sigmoid(v_logit)
             
             elif self.opts.decoding == '2-clustering':
-                assignments = []
-                for iter in range(self.opts.n_iterations+1):
-                    v_assign1 = []
-                    v_assign2 = []
-                    idx = 0
-                    for l_num in data.l_size:
-                        l_emb = l_embs[iter][idx:idx+l_num]
-                        idx += l_num
+                v_assign1 = []
+                v_assign2 = []
+                idx = 0
+                for l_num in data.l_size:
+                    l_emb = l_embs[-1][idx:idx+l_num]
+                    idx += l_num
 
-                        _, centers = kmeans(X=l_emb, num_clusters=2, distance='euclidean', tqdm_flag=0, device=self.opts.device)
-                        distance1 = l_emb - centers[[0], :]
-                        distance1 = (distance1 * distance1).sum(dim=1)
+                    _, centers = kmeans(X=l_emb, num_clusters=2, distance='euclidean', tqdm_flag=0, device=self.opts.device)
+                    distance1 = l_emb - centers[[0], :]
+                    distance1 = (distance1 * distance1).sum(dim=1)
 
-                        distance2 = l_emb - centers[[1], :]
-                        distance2 = (distance2 * distance2).sum(dim=1)
+                    distance2 = l_emb - centers[[1], :]
+                    distance2 = (distance2 * distance2).sum(dim=1)
 
-                        pl_distance2, nl_distance2 = torch.chunk(distance2.reshape(-1, 2), 2, 1)
-                        neg_distance2 = torch.cat([nl_distance2, pl_distance2], dim=1).reshape(-1)
+                    pl_distance2, nl_distance2 = torch.chunk(distance2.reshape(-1, 2), 2, 1)
+                    neg_distance2 = torch.cat([nl_distance2, pl_distance2], dim=1).reshape(-1)
 
-                        distance = (distance1 + neg_distance2).reshape(-1, 2)
-                        assignment1 = torch.argmin(distance, dim=1)
-                        assignment2 = 1 - assignment1
+                    distance = (distance1 + neg_distance2).reshape(-1, 2)
+                    assignment1 = torch.argmin(distance, dim=1)
+                    assignment2 = 1 - assignment1
 
-                        v_assign1.append(assignment1)
-                        v_assign2.append(assignment2)
-                    
-                    assignments.append([v_assign1, v_assign2])
-                return assignments
+                    v_assign1.append(assignment1)
+                    v_assign2.append(assignment2)
+
+                return [torch.cat(v_assign1, dim=0), torch.cat(v_assign2, dim=0)]
             
             else:
                 assert self.opts.decoding == 'multiple_assignments'

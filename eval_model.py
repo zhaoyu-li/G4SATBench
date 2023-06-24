@@ -44,7 +44,7 @@ def main():
         opts.log = os.path.join(opts.log_dir, f'eval_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_decoding={opts.decoding}_n_iterations={opts.n_iterations}_checkpoint={checkpoint_name}.txt')
     else:
         opts.log = os.path.join(opts.log_dir, f'eval_task={opts.task}_difficulty={difficulty}_dataset={dataset}_splits={splits_name}_n_iterations={opts.n_iterations}_checkpoint={checkpoint_name}.txt')
-
+    
     sys.stdout = Logger(opts.log, sys.stdout)
     sys.stderr = Logger(opts.log, sys.stderr)
 
@@ -61,7 +61,7 @@ def main():
     else:
         checkpoint = torch.load(opts.checkpoint)
 
-    model.load_state_dict(checkpoint['state_dict'])
+    model.load_state_dict(checkpoint['state_dict'], strict=False)
     model.to(opts.device)
 
     test_tot = 0
