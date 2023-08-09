@@ -11,7 +11,7 @@ G4SATBench: Benchmarking and Advancing SAT Solving with Graph Neural Networks</b
 ```
 .
 ├── assets                                # Figures
-├── external                              # External binary files (e.g., synthetic SAT generators, SAT solvers, etc.)
+├── external                              # External binary files
 ├── g4satbench
 │   ├── data                              # PyG data/dataset/dataloader
 │   ├── generators                        # Sythetic CNF generators and label generators
