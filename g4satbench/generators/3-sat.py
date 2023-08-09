@@ -73,9 +73,9 @@ def main():
     parser.add_argument('--test_instances', type=int, default=0, help='The number of testing instances')
 
     parser.add_argument('--min_n', type=int, default=10, help='The minimum number of variables in a instance')
-    parser.add_argument('--max_n', type=int, default=100)
+    parser.add_argument('--max_n', type=int, default=100, help='The maximum number of variables in a instance')
 
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     opts = parser.parse_args()
 
