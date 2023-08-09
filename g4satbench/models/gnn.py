@@ -19,24 +19,33 @@ class NeuroSAT(nn.Module):
         self.l_update = LayerNormBasicLSTMCell(self.opts.dim * 2, self.opts.dim)
     
     def forward(self, l_size, c_size, l_edge_index, c_edge_index, l_emb, c_emb):
+        # literal node state
         l_state = torch.zeros(l_size, self.opts.dim).to(self.opts.device)
+        # clause node state
         c_state = torch.zeros(c_size, self.opts.dim).to(self.opts.device)
 
         l_embs = [l_emb]
         c_embs = [c_emb]
 
         for i in range(self.opts.n_iterations):
+            # aggregate literal to clause messages
             l_msg_feat = self.l2c_msg_func(l_emb)
             l2c_msg = l_msg_feat[l_edge_index]
             l2c_msg_aggr = scatter_sum(l2c_msg, c_edge_index, dim=0, dim_size=c_size)
-            c_emb, c_state = self.c_update(l2c_msg_aggr, (c_emb, c_state))
-            c_embs.append(c_emb)
-
+            
+            # aggregate clause/negated literal to literal messages
             c_msg_feat = self.c2l_msg_func(c_emb)
             c2l_msg = c_msg_feat[c_edge_index]
             c2l_msg_aggr = scatter_sum(c2l_msg, l_edge_index, dim=0, dim_size=l_size)
+            
             pl_emb, ul_emb = torch.chunk(l_emb.reshape(l_size // 2, -1), 2, 1)
             l2l_msg = torch.cat([ul_emb, pl_emb], dim=1).reshape(l_size, -1)
+
+            # update clause embeddings
+            c_emb, c_state = self.c_update(l2c_msg_aggr, (c_emb, c_state))
+            c_embs.append(c_emb)
+
+            # update literal embeddings
             l_emb, l_state = self.l_update(torch.cat([c2l_msg_aggr, l2l_msg], dim=1), (l_emb, l_state))
             l_embs.append(l_emb)
 
@@ -49,7 +58,6 @@ class GGNN_LCG(nn.Module):
         self.opts = opts
         self.l2c_msg_func = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
         self.c2l_msg_func = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
-        self.l2l_msg_func = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
         self.c_update = nn.GRUCell(self.opts.dim, self.opts.dim)
         self.l_update = nn.GRUCell(self.opts.dim * 2, self.opts.dim)
     
@@ -58,19 +66,24 @@ class GGNN_LCG(nn.Module):
         c_embs = [c_emb]
 
         for i in range(self.opts.n_iterations):
+            # aggregate literal to clause messages
             l_msg_feat = self.l2c_msg_func(l_emb)
             l2c_msg = l_msg_feat[l_edge_index]
+            l2c_msg_aggr = scatter_sum(l2c_msg, c_edge_index, dim=0, dim_size=c_size)
+
+            # aggregate clause/negated literal to literal messages
             c_msg_feat = self.c2l_msg_func(c_emb)
             c2l_msg = c_msg_feat[c_edge_index]
-            pl_emb, ul_emb = torch.chunk(l_emb.reshape(l_size // 2, -1), 2, 1)
-            l2l_msg_feat = torch.cat([ul_emb, pl_emb], dim=1).reshape(l_size, -1)
-            l2l_msg = self.l2l_msg_func(l2l_msg_feat)
+            c2l_msg_aggr = scatter_sum(c2l_msg, l_edge_index, dim=0, dim_size=l_size)
 
-            l2c_msg_aggr = scatter_sum(l2c_msg, c_edge_index, dim=0, dim_size=c_size)
+            pl_emb, ul_emb = torch.chunk(l_emb.reshape(l_size // 2, -1), 2, 1)
+            l2l_msg = torch.cat([ul_emb, pl_emb], dim=1).reshape(l_size, -1)
+                        
+            # update clause embeddings
             c_emb = self.c_update(input=l2c_msg_aggr, hx=c_emb)
             c_embs.append(c_emb)
 
-            c2l_msg_aggr = scatter_sum(c2l_msg, l_edge_index, dim=0, dim_size=l_size)
+            # update literal embeddings
             l_emb = self.l_update(input=torch.cat([c2l_msg_aggr, l2l_msg], dim=1), hx=l_emb)
             l_embs.append(l_emb)
 
@@ -84,8 +97,7 @@ class GCN_LCG(nn.Module):
         self.opts = opts
         self.l2c_msg_func = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
         self.c2l_msg_func = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
-        self.l2l_msg_func = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
-
+        
         self.c_update = nn.Linear(self.opts.dim * 2, self.opts.dim)
         self.l_update = nn.Linear(self.opts.dim * 3, self.opts.dim)
     
@@ -100,19 +112,24 @@ class GCN_LCG(nn.Module):
         c_embs = [c_emb]
 
         for i in range(self.opts.n_iterations):
+            # aggregate literal to clause messages
             l_msg_feat = self.l2c_msg_func(l_emb)
             l2c_msg = l_msg_feat[l_edge_index]
+            l2c_msg_aggr = scatter_sum(l2c_msg / degree_norm, c_edge_index, dim=0, dim_size=c_size)
+
+            # aggregate clause/negated literal to literal messages
             c_msg_feat = self.c2l_msg_func(c_emb)
             c2l_msg = c_msg_feat[c_edge_index]
+            c2l_msg_aggr = scatter_sum(c2l_msg / degree_norm, l_edge_index, dim=0, dim_size=l_size)
+            
             pl_emb, ul_emb = torch.chunk(l_emb.reshape(l_size // 2, -1), 2, 1)
-            l2l_msg_feat = torch.cat([ul_emb, pl_emb], dim=1).reshape(l_size, -1)
-            l2l_msg = self.l2l_msg_func(l2l_msg_feat)
-
-            l2c_msg_aggr = scatter_sum(l2c_msg / degree_norm, c_edge_index, dim=0, dim_size=c_size)
+            l2l_msg = torch.cat([ul_emb, pl_emb], dim=1).reshape(l_size, -1)
+            
+            # update clause embeddings
             c_emb = self.c_update(torch.cat([c_emb, l2c_msg_aggr], dim=1))
             c_embs.append(c_emb)
 
-            c2l_msg_aggr = scatter_sum(c2l_msg / degree_norm, l_edge_index, dim=0, dim_size=l_size)
+            # update literal embeddings
             l_emb = self.l_update(torch.cat([l_emb, c2l_msg_aggr, l2l_msg], dim=1))
             l_embs.append(l_emb)
 
@@ -125,7 +142,6 @@ class GIN_LCG(nn.Module):
         self.opts = opts
         self.l2c_msg_func = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
         self.c2l_msg_func = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
-        self.l2l_msg_func = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
         
         self.c_update = MLP(self.opts.n_mlp_layers, self.opts.dim * 2, self.opts.dim, self.opts.dim, self.opts.activation)
         self.l_update = MLP(self.opts.n_mlp_layers, self.opts.dim * 3, self.opts.dim, self.opts.dim, self.opts.activation)
@@ -135,24 +151,29 @@ class GIN_LCG(nn.Module):
         c_embs = [c_emb]
 
         for i in range(self.opts.n_iterations):
+            # aggregate literal to clause messages
             l_msg_feat = self.l2c_msg_func(l_emb)
             l2c_msg = l_msg_feat[l_edge_index]
+            l2c_msg_aggr = scatter_sum(l2c_msg, c_edge_index, dim=0, dim_size=c_size)
+            
+            # aggregate clause/negated literal to literal messages
             c_msg_feat = self.c2l_msg_func(c_emb)
             c2l_msg = c_msg_feat[c_edge_index]
+            c2l_msg_aggr = scatter_sum(c2l_msg, l_edge_index, dim=0, dim_size=l_size)
+
             pl_emb, ul_emb = torch.chunk(l_emb.reshape(l_size // 2, -1), 2, 1)
-            l2l_msg_feat = torch.cat([ul_emb, pl_emb], dim=1).reshape(l_size, -1)
-            l2l_msg = self.l2l_msg_func(l2l_msg_feat)
+            l2l_msg = torch.cat([ul_emb, pl_emb], dim=1).reshape(l_size, -1)
             
-            l2c_msg_aggr = scatter_sum(l2c_msg, c_edge_index, dim=0, dim_size=c_size)
+            # update clause embeddings
             c_emb = self.c_update(torch.cat([c_emb, l2c_msg_aggr], dim=1))
             c_embs.append(c_emb)
             
-            c2l_msg_aggr = scatter_sum(c2l_msg, l_edge_index, dim=0, dim_size=l_size)
+            # update literal embeddings
             l_emb = self.l_update(torch.cat([l_emb, c2l_msg_aggr, l2l_msg], dim=1))
             l_embs.append(l_emb)
 
         return l_embs, c_embs
-     
+
 
 class GNN_LCG(nn.Module):
     def __init__(self, opts):
@@ -178,7 +199,9 @@ class GNN_LCG(nn.Module):
             self.l_readout = MLP(self.opts.n_mlp_layers, self.opts.dim * 2, self.opts.dim, 1, self.opts.activation)
         
         if hasattr(self.opts, 'use_contrastive_learning'):
+            # temperature parameter
             self.tau = 0.5
+            # projection head
             self.proj = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
     
     def forward(self, data):
@@ -203,6 +226,7 @@ class GNN_LCG(nn.Module):
             g_emb = scatter_mean(l_embs[-1], l_batch, dim=0, dim_size=batch_size)
             
             if hasattr(self.opts, 'use_contrastive_learning'):
+                # SimCLR
                 g_emb = self.proj(g_emb)
                 h = F.normalize(g_emb, dim=1)
                 sim = torch.exp(torch.mm(h, h.t()) / self.tau)
@@ -220,6 +244,7 @@ class GNN_LCG(nn.Module):
                 return torch.sigmoid(v_logit)
             
             elif self.opts.decoding == '2-clustering':
+                # perform 2 clustering
                 v_assign1 = []
                 v_assign2 = []
                 idx = 0
@@ -277,23 +302,27 @@ class GGNN_VCG(nn.Module):
         c_embs = [c_emb]
 
         for i in range(self.opts.n_iterations):
+            # aggregate variable to clause messages
             p_v2c_msg_feat = self.p_v2c_msg_func(v_emb)
             p_v2c_msg = p_v2c_msg_feat[v_edge_index[p_edge_index]]
+            p_v2c_msg_aggr = scatter_sum(p_v2c_msg, c_edge_index[p_edge_index], dim=0, dim_size=c_size)
             n_v2c_msg_feat = self.n_v2c_msg_func(v_emb)
             n_v2c_msg = n_v2c_msg_feat[v_edge_index[n_edge_index]]
+            n_v2c_msg_aggr = scatter_sum(n_v2c_msg, c_edge_index[n_edge_index], dim=0, dim_size=c_size)
 
+            # aggregate clause to variable messages
             p_c2v_msg_feat = self.p_c2v_msg_func(c_emb)
             p_c2v_msg = p_c2v_msg_feat[c_edge_index[p_edge_index]]
+            p_c2v_msg_aggr = scatter_sum(p_c2v_msg, v_edge_index[p_edge_index], dim=0, dim_size=v_size)
             n_c2v_msg_feat = self.n_c2v_msg_func(c_emb)
             n_c2v_msg = n_c2v_msg_feat[c_edge_index[n_edge_index]]
+            n_c2v_msg_aggr = scatter_sum(n_c2v_msg, v_edge_index[n_edge_index], dim=0, dim_size=v_size)
 
-            p_v2c_msg_aggr = scatter_sum(p_v2c_msg, c_edge_index[p_edge_index], dim=0, dim_size=c_size)
-            n_v2c_msg_aggr = scatter_sum(n_v2c_msg, c_edge_index[n_edge_index], dim=0, dim_size=c_size)
+            # update clause embeddings
             c_emb = self.c_update(torch.cat([p_v2c_msg_aggr, n_v2c_msg_aggr], dim=1), c_emb)
             c_embs.append(c_emb)
 
-            p_c2v_msg_aggr = scatter_sum(p_c2v_msg, v_edge_index[p_edge_index], dim=0, dim_size=v_size)
-            n_c2v_msg_aggr = scatter_sum(n_c2v_msg, v_edge_index[n_edge_index], dim=0, dim_size=v_size)
+            # update variable embeddings
             v_emb = self.v_update(torch.cat([p_c2v_msg_aggr, n_c2v_msg_aggr], dim=1), v_emb)
             v_embs.append(v_emb)
 
@@ -317,6 +346,7 @@ class GCN_VCG(nn.Module):
         v_embs = [v_emb]
         c_embs = [c_emb]
 
+        # calculate the degree of each clause/variable node
         p_v_one = torch.ones((v_edge_index[p_edge_index].size(0), 1), device=self.opts.device)
         p_v_deg = scatter_sum(p_v_one, v_edge_index[p_edge_index], dim=0, dim_size=v_size)
         p_v_deg[p_v_deg < 1] = 1
@@ -335,23 +365,27 @@ class GCN_VCG(nn.Module):
         n_norm = n_v_deg[v_edge_index[n_edge_index]].pow(0.5) * n_c_deg[c_edge_index[n_edge_index]].pow(0.5)
 
         for i in range(self.opts.n_iterations):
+            # aggregate variable to clause messages
             p_v2c_msg_feat = self.p_v2c_msg_func(v_emb)
             p_v2c_msg = p_v2c_msg_feat[v_edge_index[p_edge_index]]
+            p_v2c_msg_aggr = scatter_sum(p_v2c_msg / p_norm, c_edge_index[p_edge_index], dim=0, dim_size=c_size)
             n_v2c_msg_feat = self.n_v2c_msg_func(v_emb)
             n_v2c_msg = n_v2c_msg_feat[v_edge_index[n_edge_index]]
+            n_v2c_msg_aggr = scatter_sum(n_v2c_msg / n_norm, c_edge_index[n_edge_index], dim=0, dim_size=c_size)
 
+            # aggregate clause to variable messages
             p_c2v_msg_feat = self.p_c2v_msg_func(c_emb)
             p_c2v_msg = p_c2v_msg_feat[c_edge_index[p_edge_index]]
+            p_c2v_msg_aggr = scatter_sum(p_c2v_msg / p_norm, v_edge_index[p_edge_index], dim=0, dim_size=v_size)
             n_c2v_msg_feat = self.n_c2v_msg_func(c_emb)
             n_c2v_msg = n_c2v_msg_feat[c_edge_index[n_edge_index]]
+            n_c2v_msg_aggr = scatter_sum(n_c2v_msg / n_norm, v_edge_index[n_edge_index], dim=0, dim_size=v_size)
 
-            p_v2c_msg_aggr = scatter_sum(p_v2c_msg / p_norm, c_edge_index[p_edge_index], dim=0, dim_size=c_size)
-            n_v2c_msg_aggr = scatter_sum(n_v2c_msg / n_norm, c_edge_index[n_edge_index], dim=0, dim_size=c_size)
+            # update clause embeddings
             c_emb = self.c_update(torch.cat([c_emb, p_v2c_msg_aggr, n_v2c_msg_aggr], dim=1))
             c_embs.append(c_emb)
 
-            p_c2v_msg_aggr = scatter_sum(p_c2v_msg / p_norm, v_edge_index[p_edge_index], dim=0, dim_size=v_size)
-            n_c2v_msg_aggr = scatter_sum(n_c2v_msg / n_norm, v_edge_index[n_edge_index], dim=0, dim_size=v_size)
+            # update variable embeddings
             v_emb = self.v_update(torch.cat([v_emb, p_c2v_msg_aggr, n_c2v_msg_aggr], dim=1))
             v_embs.append(v_emb)
 
@@ -375,23 +409,27 @@ class GIN_VCG(nn.Module):
         c_embs = [c_emb]
 
         for i in range(self.opts.n_iterations):
+            # aggregate variable to clause messages
             p_v2c_msg_feat = self.p_v2c_msg_func(v_emb)
             p_v2c_msg = p_v2c_msg_feat[v_edge_index[p_edge_index]]
+            p_v2c_msg_aggr = scatter_sum(p_v2c_msg, c_edge_index[p_edge_index], dim=0, dim_size=c_size)
             n_v2c_msg_feat = self.n_v2c_msg_func(v_emb)
             n_v2c_msg = n_v2c_msg_feat[v_edge_index[n_edge_index]]
+            n_v2c_msg_aggr = scatter_sum(n_v2c_msg, c_edge_index[n_edge_index], dim=0, dim_size=c_size)
 
+            # aggregate clause to variable messages
             p_c2v_msg_feat = self.p_c2v_msg_func(c_emb)
             p_c2v_msg = p_c2v_msg_feat[c_edge_index[p_edge_index]]
+            p_c2v_msg_aggr = scatter_sum(p_c2v_msg, v_edge_index[p_edge_index], dim=0, dim_size=v_size)
             n_c2v_msg_feat = self.n_c2v_msg_func(c_emb)
             n_c2v_msg = n_c2v_msg_feat[c_edge_index[n_edge_index]]
+            n_c2v_msg_aggr = scatter_sum(n_c2v_msg, v_edge_index[n_edge_index], dim=0, dim_size=v_size)
 
-            p_v2c_msg_aggr = scatter_sum(p_v2c_msg, c_edge_index[p_edge_index], dim=0, dim_size=c_size)
-            n_v2c_msg_aggr = scatter_sum(n_v2c_msg, c_edge_index[n_edge_index], dim=0, dim_size=c_size)
+            # update clause embeddings
             c_emb = self.c_update(torch.cat([c_emb, p_v2c_msg_aggr, n_v2c_msg_aggr], dim=1))
             c_embs.append(c_emb)
 
-            p_c2v_msg_aggr = scatter_sum(p_c2v_msg, v_edge_index[p_edge_index], dim=0, dim_size=v_size)
-            n_c2v_msg_aggr = scatter_sum(n_c2v_msg, v_edge_index[n_edge_index], dim=0, dim_size=v_size)
+            # update variable embeddings
             v_emb = self.v_update(torch.cat([v_emb, p_c2v_msg_aggr, n_c2v_msg_aggr], dim=1))
             v_embs.append(v_emb)
 
@@ -420,7 +458,9 @@ class GNN_VCG(nn.Module):
             self.v_readout = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, 1, self.opts.activation)
 
         if hasattr(self.opts, 'use_contrastive_learning'):
+            # temperature parameter
             self.tau = 0.5
+            # projection head
             self.proj = MLP(self.opts.n_mlp_layers, self.opts.dim, self.opts.dim, self.opts.dim, self.opts.activation)
     
     def forward(self, data):
@@ -448,6 +488,7 @@ class GNN_VCG(nn.Module):
             g_emb = scatter_mean(v_embs[-1], v_batch, dim=0, dim_size=batch_size)
             
             if hasattr(self.opts, 'use_contrastive_learning'):
+                # SimCLR
                 g_emb = self.proj(g_emb)
                 h = F.normalize(g_emb, dim=1)
                 sim = torch.exp(torch.mm(h, h.t()) / self.tau)
@@ -460,6 +501,7 @@ class GNN_VCG(nn.Module):
                 return torch.sigmoid(g_logit)
 
         elif self.opts.task == 'assignment':
+            # 2-clustering can not be applied to VCG
             if not hasattr(self.opts, 'decoding') or self.opts.decoding == 'standard':
                 v_logit = self.v_readout(v_embs[-1]).reshape(-1)
                 return torch.sigmoid(v_logit)

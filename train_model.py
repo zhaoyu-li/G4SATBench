@@ -20,17 +20,17 @@ def main():
     parser.add_argument('task', type=str, choices=['satisfiability', 'assignment', 'core_variable'], help='Experiment task')
     parser.add_argument('train_dir', type=str, help='Directory with training data')
     parser.add_argument('--train_splits', type=str, nargs='+', choices=['sat', 'unsat', 'augmented_sat', 'augmented_unsat'], default=None, help='Category of the training data')
-    parser.add_argument('--train_sample_size', type=int, default=None, help='The number of instance in training dataset')
+    parser.add_argument('--train_sample_size', type=int, default=None, help='The number of instance in each training splits')
     parser.add_argument('--checkpoint', type=str, default=None, help='pretrained checkpoint')
     parser.add_argument('--valid_dir', type=str, default=None, help='Directory with validating data')
     parser.add_argument('--valid_splits', type=str, nargs='+', choices=['sat', 'unsat', 'augmented_sat', 'augmented_unsat'], default=None, help='Category of the validating data')
-    parser.add_argument('--valid_sample_size', type=int, default=None, help='The number of instance in validation dataset')
+    parser.add_argument('--valid_sample_size', type=int, default=None, help='The number of instance in each validating splits')
     parser.add_argument('--label', type=str, choices=[None, 'satisfiability', 'assignment', 'core_variable'], default=None, help='Label')
     parser.add_argument('--data_fetching', type=str, choices=['parallel', 'sequential'], default='parallel', help='Fetch data in sequential order or in parallel')
     parser.add_argument('--loss', type=str, choices=[None, 'supervised', 'unsupervised_1', 'unsupervised_2'], default=None, help='Loss type for assignment prediction')
-    parser.add_argument('--save_model_epochs', type=int, default=1, help='Number of epochs between model savings')
+    parser.add_argument('--save_model_epochs', type=int, default=1, help='Number of epochs between two model savings')
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
-    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs during training')
+    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs for training')
     parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-8, help='L2 regularization weight')
     parser.add_argument('--scheduler', type=str, default=None, help='Scheduler')
@@ -101,6 +101,7 @@ def main():
             assert opts.scheduler == 'StepLR'
             scheduler = StepLR(optimizer, step_size=opts.lr_step_size, gamma=opts.lr_factor)
 
+    # for printing
     if opts.task == 'satisfiability' or opts.task == 'core_variable':
         format_table = FormatTable()
 
@@ -140,6 +141,7 @@ def main():
                     loss = F.binary_cross_entropy(v_pred, label)
 
                 elif opts.loss == 'unsupervised_1':
+                    # calculate the loss in Eq. 4 and Eq. 5
                     l_pred = torch.stack([v_pred, 1 - v_pred], dim=1).reshape(-1)
                     s_max_denom = (l_pred[l_edge_index] / 0.1).exp()
                     s_max_nom = l_pred[l_edge_index] * s_max_denom
@@ -157,6 +159,7 @@ def main():
                     loss = (1 - score).mean()
 
                 elif opts.loss == 'unsupervised_2':
+                    # calculate the loss in Eq. 6
                     l_pred = torch.stack([v_pred, 1 - v_pred], dim=1).reshape(-1)
                     l_pred_aggr = scatter_sum(safe_log(1 - l_pred[l_edge_index]), c_edge_index, dim=0, dim_size=c_size)
                     c_loss = -safe_log(1 - l_pred_aggr.exp())
@@ -235,6 +238,7 @@ def main():
                             loss = F.binary_cross_entropy(v_pred, label)
                         
                         elif opts.loss == 'unsupervised_1':
+                            # calculate the loss in Eq. 4 and Eq. 5
                             l_pred = torch.stack([v_pred, 1 - v_pred], dim=1).reshape(-1)
                             s_max_denom = (l_pred[l_edge_index] / 0.1).exp()
                             s_max_nom = l_pred[l_edge_index] * s_max_denom
@@ -252,6 +256,7 @@ def main():
                             loss = (1 - score).mean()
 
                         elif opts.loss == 'unsupervised_2':
+                            # calculate the loss in Eq. 6
                             l_pred = torch.stack([v_pred, 1 - v_pred], dim=1).reshape(-1)
                             l_pred_aggr = scatter_sum(safe_log(1 - l_pred[l_edge_index]), c_edge_index, dim=0, dim_size=c_size)
                             c_loss = -safe_log(1 - l_pred_aggr.exp())

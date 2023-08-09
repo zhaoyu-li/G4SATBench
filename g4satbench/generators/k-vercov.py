@@ -35,9 +35,13 @@ class Generator:
         k = random.randint(self.opts.min_k, self.opts.max_k)
         
         while not sat or not unsat:
+            # randomly choose v
             v = random.randint(max(self.opts.min_v, k + 2), self.opts.max_v)
             com_k = v - k
+            # set p
             p = pow(1/math.comb(v,com_k), 2/(com_k*(com_k-1)))
+
+            # randomly generate a graph
             com_graph = nx.generators.erdos_renyi_graph(v, p=p)
             graph = nx.complement(com_graph)
 
@@ -48,13 +52,15 @@ class Generator:
             n_vars = len(list(cnf.variables()))
             clauses = list(cnf.clauses())
             clauses = [list(cnf._compress_clause(clause)) for clause in clauses]
+
+            # ensure the graph in connected
             vig = VIG(n_vars, clauses)
             if not nx.is_connected(vig):
                 continue
 
+            # remove duplicate instances
             clauses = clean_clauses(clauses)
             h = hash_clauses(clauses)
-
             if h in self.hash_list:
                 continue
 
@@ -76,17 +82,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('out_dir', type=str)
     
-    parser.add_argument('--train_instances', type=int, default=0)
-    parser.add_argument('--valid_instances', type=int, default=0)
-    parser.add_argument('--test_instances', type=int, default=0)
+    parser.add_argument('--train_instances', type=int, default=0, help='The number of training instances')
+    parser.add_argument('--valid_instances', type=int, default=0, help='The number of validating instances')
+    parser.add_argument('--test_instances', type=int, default=0, help='The number of testing instances')
 
-    parser.add_argument('--min_k', type=int, default=3)
-    parser.add_argument('--max_k', type=int, default=5)
+    parser.add_argument('--min_k', type=int, default=3, help='The minimum number for k')
+    parser.add_argument('--max_k', type=int, default=5, help='The minimum number for k')
 
-    parser.add_argument('--min_v', type=int, default=5)
-    parser.add_argument('--max_v', type=int, default=20)
+    parser.add_argument('--min_v', type=int, default=5, help='The minimum number of nodes in a instance')
+    parser.add_argument('--max_v', type=int, default=20, help='The maximum number of nodes in a instance')
     
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     opts = parser.parse_args()
 

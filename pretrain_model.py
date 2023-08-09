@@ -17,8 +17,7 @@ def main():
     parser.add_argument('train_dir', type=str, help='Directory with training data')
     parser.add_argument('--task', type=str, choices=['satisfiability'], default='satisfiability', help='Experiment task')
     parser.add_argument('--train_splits', type=str, nargs='+', choices=['sat', 'unsat', 'augmented_sat', 'augmented_unsat'], default=None, help='Category of the training data')
-    parser.add_argument('--train_sample_size', type=int, default=None, help='The number of instance in training dataset')
-    parser.add_argument('--train_augment_ratio', type=float, default=None, help='The ratio between added clauses and all learned clauses')
+    parser.add_argument('--train_sample_size', type=int, default=None, help='The number of instance in each training splits')
     parser.add_argument('--use_contrastive_learning', type=bool, choices=[True], default=True)
     parser.add_argument('--label', type=str, choices=None, default=None, help='Label')
     parser.add_argument('--data_fetching', type=str, choices=['parallel', 'sequential'], default='parallel', help='Fetch data in sequential order or in parallel')
@@ -73,6 +72,7 @@ def main():
             data = data.to(opts.device)
             batch_size = data.num_graphs
 
+            # get similarity matrix
             sim = model(data)
             positive_index = data.positive_index
             loss = -safe_log(sim[torch.arange(batch_size), data.positive_index] / sim.sum(dim=1)).mean()

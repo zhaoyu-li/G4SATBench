@@ -21,7 +21,7 @@ def main():
     parser.add_argument('test_dir', type=str, help='Directory with testing data')
     parser.add_argument('checkpoint', type=str, help='Checkpoint to be tested')
     parser.add_argument('--test_splits', type=str, nargs='+', choices=['sat', 'unsat', 'augmented_sat', 'augmented_unsat'], default=None, help='Validation splits')
-    parser.add_argument('--test_sample_size', type=int, default=None, help='The number of instance in validation dataset')
+    parser.add_argument('--test_sample_size', type=int, default=None, help='The number of instance in each testing splits')
     parser.add_argument('--label', type=str, choices=[None, 'satisfiability', 'core_variable'], default=None, help='Directory with validating data')
     parser.add_argument('--decoding', type=str, choices=['standard', '2-clustering', 'multiple_assignments'], default='standard', help='Decoding techniques for satisfying assignment prediction')
     parser.add_argument('--data_fetching', type=str, choices=['parallel', 'sequential'], default='parallel', help='Fetch data in sequential order or in parallel')
@@ -91,6 +91,8 @@ def main():
                 
                 if opts.decoding == 'standard':
                     v_pred = model(data)
+
+                    # calculate the satisfying assignments
                     v_assign = (v_pred > 0.5).float()
                     l_assign = torch.stack([v_assign, 1 - v_assign], dim=1).reshape(-1)
                     c_sat = torch.clamp(scatter_sum(l_assign[l_edge_index], c_edge_index, dim=0, dim_size=c_size), max=1)
@@ -99,6 +101,8 @@ def main():
                 
                 elif opts.decoding == '2-clustering':
                     v_assigns = model(data)
+
+                    # calculate the satisfying assignments
                     sat_batches = []
                     for v_assign in v_assigns:
                         l_assign = torch.stack([v_assign, 1 - v_assign], dim=1).reshape(-1)
@@ -110,6 +114,8 @@ def main():
                 else:
                     assert opts.decoding == 'multiple_assignments'
                     v_preds = model(data)
+
+                    # calculate the satisfying assignments
                     sat_batches = []
                     for v_pred in v_preds:
                         v_assign = (v_pred > 0.5).float()

@@ -50,19 +50,22 @@ class Generator:
                 except:
                     os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             
+            # generator fails
             if os.stat(cnf_filepath).st_size == 0:
                 os.remove(cnf_filepath)
                 continue
             
             n_vars, clauses = parse_cnf_file(cnf_filepath)
+
+            # ensure the graph in connected
             vig = VIG(n_vars, clauses)
             if not nx.is_connected(vig):
                 os.remove(cnf_filepath)
                 continue
 
+            # remove duplicate instances
             clauses = clean_clauses(clauses)
             h = hash_clauses(clauses)
-
             if h in self.hash_list:
                 continue
 
@@ -86,23 +89,23 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('out_dir', type=str)
 
-    parser.add_argument('--train_instances', type=int, default=0)
-    parser.add_argument('--valid_instances', type=int, default=0)
-    parser.add_argument('--test_instances', type=int, default=0)
+    parser.add_argument('--train_instances', type=int, default=0, help='The number of training instances')
+    parser.add_argument('--valid_instances', type=int, default=0, help='The number of validating instances')
+    parser.add_argument('--test_instances', type=int, default=0, help='The number of testing instances')
 
-    parser.add_argument('--min_k', type=int, default=4)
-    parser.add_argument('--max_k', type=int, default=5)
+    parser.add_argument('--min_k', type=int, default=4, help='The minimum number of variables in a clause')
+    parser.add_argument('--max_k', type=int, default=5, help='The maximum number of variables in a clause')
 
-    parser.add_argument('--min_n', type=int, default=10)
-    parser.add_argument('--max_n', type=int, default=40)
+    parser.add_argument('--min_n', type=int, default=10, help='The minimum number of variables in a instance')
+    parser.add_argument('--max_n', type=int, default=40, help='The maximum number of variables in a instance')
 
-    parser.add_argument('--min_b', type=float, default=0)
-    parser.add_argument('--max_b', type=float, default=1)
+    parser.add_argument('--min_b', type=float, default=0, help='The minimum power-law parameter')
+    parser.add_argument('--max_b', type=float, default=1, help='The maximum power-law parameter')
 
-    parser.add_argument('--min_T', type=float, default=0.75)
-    parser.add_argument('--max_T', type=float, default=1.5)
+    parser.add_argument('--min_T', type=float, default=0.75, help='The minimum temperature parameter')
+    parser.add_argument('--max_T', type=float, default=1.5, help='The maximum temperature parameter')
 
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     opts = parser.parse_args()
 

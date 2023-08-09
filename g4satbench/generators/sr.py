@@ -32,8 +32,11 @@ class Generator:
             solver = Cadical()
             clauses = []
             while True:
+                # randomly choose k
                 k_base = 1 if random.random() < self.opts.p_k_2 else 2
                 k = k_base + np.random.geometric(self.opts.p_geo)
+
+                # randomly choose k literals without replacement
                 vs = np.random.choice(n_vars, size=min(n_vars, k), replace=False)
                 clause = [int(v + 1) if random.random() < 0.5 else int(-(v + 1)) for v in vs]
 
@@ -48,19 +51,21 @@ class Generator:
 
             clauses.append(unsat_clause)
 
+            # ensure the graph in connected
             vig = VIG(n_vars, clauses)
             if not nx.is_connected(vig):
                 continue
 
+            # remove duplicate instances
             clauses = clean_clauses(clauses)
             h = hash_clauses(clauses)
-
             if h not in self.hash_list:
                 self.hash_list.append(h)
                 break
 
         write_dimacs_to(n_vars, clauses, os.path.join(unsat_out_dir, '%.5d.cnf' % (i)))
 
+        # flip the first literal in the last clause
         clauses[-1] = sat_clause
         write_dimacs_to(n_vars, clauses, os.path.join(sat_out_dir, '%.5d.cnf' % (i)))
 
@@ -69,17 +74,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('out_dir', type=str)
     
-    parser.add_argument('--train_instances', type=int, default=0)
-    parser.add_argument('--valid_instances', type=int, default=0)
-    parser.add_argument('--test_instances', type=int, default=0)
+    parser.add_argument('--train_instances', type=int, default=0, help='The number of training instances')
+    parser.add_argument('--valid_instances', type=int, default=0, help='The number of validating instances')
+    parser.add_argument('--test_instances', type=int, default=0, help='The number of testing instances')
     
-    parser.add_argument('--min_n', type=int, default=10)
-    parser.add_argument('--max_n', type=int, default=100)
+    parser.add_argument('--min_n', type=int, default=10, help='The minimum number of variables in a instance')
+    parser.add_argument('--max_n', type=int, default=100, help='The maximum number of variables in a instance')
+ 
+    parser.add_argument('--p_k_2', type=float, default=0.3, help='Hyperparameter Bernoulli(b) for k')
+    parser.add_argument('--p_geo', type=float, default=0.4, help='Hyperparameter Geometric(g) for k')
 
-    parser.add_argument('--p_k_2', type=float, default=0.3)
-    parser.add_argument('--p_geo', type=float, default=0.4)
-
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     opts = parser.parse_args()
 

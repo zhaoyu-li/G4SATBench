@@ -78,6 +78,7 @@ class SATDataset(Dataset):
         return f'{split}/{filename}_{self.opts.graph}.pt'
     
     def _get_positive_indices(self):
+        # calculate the index to map the original instance to its augmented one, and vice versa.
         positive_indices = []
         for offset, split in enumerate(self.splits):
             if split == 'sat':
@@ -106,6 +107,7 @@ class SATDataset(Dataset):
         
         n_vars, clauses, learned_clauses = parse_cnf_file(cnf_filepath, split_clauses=True)
         
+        # limit the size of the learned clauses to 1000
         if len(learned_clauses) > 1000:
             clauses = clauses + learned_clauses[:1000]
         else:

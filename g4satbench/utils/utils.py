@@ -10,6 +10,7 @@ from itertools import combinations
 ROOT_DIR = os.getcwd()
 
 
+# write the CNF formula in DIMACS format to a file
 def write_dimacs_to(n_vars, clauses, out_path, learned_clauses=None):
     with open(out_path, 'w') as f:
         f.write('p cnf %d %d\n' % (n_vars, len(clauses)))
@@ -26,6 +27,7 @@ def write_dimacs_to(n_vars, clauses, out_path, learned_clauses=None):
                 f.write('0\n')
 
 
+# parse a file in DIMACS format
 def parse_cnf_file(file_path, split_clauses=False):
     with open(file_path, 'r') as f:
         lines = f.readlines()
@@ -70,6 +72,7 @@ def parse_cnf_file(file_path, split_clauses=False):
         return n_vars, clauses, learned_clauses
 
 
+# parse a file in DRAT format
 def parse_proof_file(file_path):
     with open(file_path, 'r') as f:
         lines = f.readlines()
@@ -89,6 +92,7 @@ def parse_proof_file(file_path):
     return learned_clauses, deleted_clauses
 
 
+# clean redundant literals/clauses
 def clean_clauses(clauses):
     hash_clauses = []
     cleaned_clauses = []
@@ -101,6 +105,7 @@ def clean_clauses(clauses):
     return cleaned_clauses
 
 
+# transform literal to variable index (0 based)
 def literal2v_idx(literal):
     assert abs(literal) > 0
     sign = literal > 0
@@ -108,6 +113,7 @@ def literal2v_idx(literal):
     return sign, v_idx
 
 
+# transform literal to literal index (0 based)
 def literal2l_idx(literal):
     assert abs(literal) > 0
     sign = literal > 0
@@ -118,6 +124,7 @@ def literal2l_idx(literal):
         return v_idx * 2 + 1
 
 
+# construct VIG in networkx
 def VIG(n_vars, clauses):
     G = nx.Graph()
     G.add_nodes_from(range(n_vars))
@@ -130,6 +137,7 @@ def VIG(n_vars, clauses):
     return G
 
 
+# construct VCG in networkx
 def VCG(n_vars, clauses):
     G = nx.Graph()
     G.add_nodes_from([f'v_{idx}' for idx in range(n_vars)], bipartite=0)
@@ -142,6 +150,7 @@ def VCG(n_vars, clauses):
     return G
 
 
+# construct LCG in networkx
 def LCG(n_vars, clauses):
     G = nx.Graph()
     G.add_nodes_from([f'l_{idx}' for idx in range(n_vars * 2)], bipartite=0)
@@ -154,6 +163,7 @@ def LCG(n_vars, clauses):
     return G
 
 
+# fix random seed
 def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -164,13 +174,16 @@ def set_seed(seed):
     random.seed(seed)
 
 
+# use log safely
 def safe_log(t, eps=1e-8):
     return (t + eps).log()
 
 
+# use division safely
 def safe_div(a, b, eps=1e-8):
     return a / (b + eps)
 
 
+# hash clauses (or a CNF formula)
 def hash_clauses(clauses):
     return hash(frozenset([hash(frozenset([str(literal).encode() for literal in clause])) for clause in clauses]))

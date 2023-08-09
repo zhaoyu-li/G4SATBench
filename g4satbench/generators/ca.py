@@ -53,18 +53,21 @@ class Generator:
             except:
                 os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             
+            # generator fails
             if not os.path.exists(cnf_filepath):
                 continue
             
             n_vars, clauses = parse_cnf_file(cnf_filepath)
+
+            # ensure the graph in connected
             vig = VIG(n_vars, clauses)
             if not nx.is_connected(vig):
                 os.remove(cnf_filepath)
                 continue
 
+            # remove duplicate instances
             clauses = clean_clauses(clauses)
             h = hash_clauses(clauses)
-
             if h in self.hash_list:
                 continue
 
@@ -88,23 +91,23 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('out_dir', type=str)
     
-    parser.add_argument('--train_instances', type=int, default=0)
-    parser.add_argument('--valid_instances', type=int, default=0)
-    parser.add_argument('--test_instances', type=int, default=0)
+    parser.add_argument('--train_instances', type=int, default=0, help='The number of training instances')
+    parser.add_argument('--valid_instances', type=int, default=0, help='The number of validating instances')
+    parser.add_argument('--test_instances', type=int, default=0, help='The number of testing instances')
 
-    parser.add_argument('--min_k', type=int, default=4)
-    parser.add_argument('--max_k', type=int, default=5)
+    parser.add_argument('--min_k', type=int, default=4, help='The minimum number of variables in a clause')
+    parser.add_argument('--max_k', type=int, default=5, help='The maximum number of variables in a clause')
 
-    parser.add_argument('--min_n', type=int, default=10)
-    parser.add_argument('--max_n', type=int, default=100)
+    parser.add_argument('--min_n', type=int, default=10, help='The minimum number of variables in a instance')
+    parser.add_argument('--max_n', type=int, default=100, help='The maximum number of variables in a instance')
 
-    parser.add_argument('--min_c', type=int, default=3)
-    parser.add_argument('--max_c', type=int, default=10)
+    parser.add_argument('--min_c', type=int, default=3, help='The minimum number of communities')
+    parser.add_argument('--max_c', type=int, default=10, help='The maximum number of communities')
     
-    parser.add_argument('--min_q', type=float, default=0.7)
-    parser.add_argument('--max_q', type=float, default=0.9)
+    parser.add_argument('--min_q', type=float, default=0.7, help='The minimum number for the modularity')
+    parser.add_argument('--max_q', type=float, default=0.9, help='The maximum number for the modularity')
 
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     opts = parser.parse_args()
 

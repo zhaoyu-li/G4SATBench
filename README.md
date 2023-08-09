@@ -34,7 +34,7 @@ bash scripts/install.sh
 ```
 
 ## Datasets
-We provide 7 synthetic SAT generators to produce CNF formulas in [the DIMACS format](http://www.satcompetition.org/2009/format-benchmarks2009.html).
+We provide 7 synthetic SAT generators to produce CNF formulas in [DIMACS format](http://www.satcompetition.org/2009/format-benchmarks2009.html).
 
 An example SAT instance $(x_1 \lor x_2 \lor \neg x_3) \land (\neg x_2 \lor x_3)$ could be encoded as this:
 ```

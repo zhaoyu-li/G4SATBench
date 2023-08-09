@@ -38,13 +38,15 @@ class Generator:
             cnf = RandomKCNF(3, n_vars, n_clauses)
             clauses = list(cnf.clauses())
             clauses = [list(cnf._compress_clause(clause)) for clause in clauses]
+
+            # ensure the graph in connected
             vig = VIG(n_vars, clauses)
             if not nx.is_connected(vig):
                 continue
 
+            # remove duplicate instances
             clauses = clean_clauses(clauses)
             h = hash_clauses(clauses)
-
             if h in self.hash_list:
                 continue
 
@@ -66,11 +68,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('out_dir', type=str)
     
-    parser.add_argument('--train_instances', type=int, default=0)
-    parser.add_argument('--valid_instances', type=int, default=0)
-    parser.add_argument('--test_instances', type=int, default=0)
+    parser.add_argument('--train_instances', type=int, default=0, help='The number of training instances')
+    parser.add_argument('--valid_instances', type=int, default=0, help='The number of validating instances')
+    parser.add_argument('--test_instances', type=int, default=0, help='The number of testing instances')
 
-    parser.add_argument('--min_n', type=int, default=10)
+    parser.add_argument('--min_n', type=int, default=10, help='The minimum number of variables in a instance')
     parser.add_argument('--max_n', type=int, default=100)
 
     parser.add_argument('--seed', type=int, default=0)

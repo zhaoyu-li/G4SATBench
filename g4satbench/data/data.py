@@ -13,6 +13,14 @@ class LCG(Data):
             l_batch=None,
             c_batch=None
         ):
+        """
+        l_size: The number of literals
+        c_size: The number of clauses
+        l_edge_index: The literal index in the edge list
+        c_edge_index: The clause index in the edge list
+        l_batch: All 1 array with the size of l_size (to map each literal node to its respective graph in a batch)
+        c_batch: All 1 array with the size of c_size (to map each clause node to its respective graph in a batch)
+        """
         super().__init__()
         self.l_size = l_size
         self.c_size = c_size
@@ -48,6 +56,17 @@ class VCG(Data):
             v_batch=None,
             c_batch=None
         ):
+        """
+        v_size: The number of variables
+        c_size: The number of clauses
+        v_edge_index: The variable index in the edge list
+        c_edge_index: The clause index in the edge list
+        p_edge_index: The positive edge index in the edge list
+        n_edge_index: The negative edge index in the edge list
+        l_edge_index: The literal index in the edge list
+        v_batch: All 1 array with the size of l_size (to map each variable node to its respective graph in a batch)
+        c_batch: All 1 array with the size of c_size (to map each clause node to its respective graph in a batch)
+        """
         super().__init__()
         self.v_size = v_size
         self.c_size = c_size
