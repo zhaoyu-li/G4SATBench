@@ -5,7 +5,6 @@
 This is the official implementation of the paper
 
 G4SATBench: Benchmarking and Advancing SAT Solving with Graph Neural Networks</br>
-[Zhaoyu Li](https://www.zhaoyu-li.com), Jinpei Guo, and [Xujie Si](https://www.cs.toronto.edu/~six/)</br>
 
 ## Folder Structure
 ```
