@@ -4,7 +4,9 @@
 
 This is the official implementation of the paper
 
-G4SATBench: Benchmarking and Advancing SAT Solving with Graph Neural Networks</br>
+[G4SATBench: Benchmarking and Advancing SAT Solving with Graph Neural Networks](https://arxiv.org/pdf/2309.16941v2)</br>
+Zhaoyu Li, Jinpei Guo, Xujie Si</br>
+In *Transactions on Machine Learning Research (TMLR 2024)*.
 
 ## Folder Structure
 ```
@@ -118,3 +120,17 @@ python eval_model.py assignment ~/g4satbench/medium/sr/test/ runs/train_task\=as
 
 ## Extension
 If you want to build different GNN architectures on the VCG* or LCG* representation of CNF formulas, you could implement the GNN models in `g4satbench/models/gnn.py`. If you want to develop GNN models on other graph representations, you could implement your graph formats in `g4satbench/data/data.py` and modify the corresponding `g4satbench/data/dataset.py` and `g4satbench/models/gnn.py`.
+
+## Citation
+If you find this repository useful, please consider citing our paper:
+
+```
+@article{li2024gsatbench,
+    title={G4{SATB}ench: Benchmarking and Advancing {SAT} Solving with Graph Neural Networks},
+    author={Zhaoyu Li and Jinpei Guo and Xujie Si},
+    journal={Transactions on Machine Learning Research},
+    issn={2835-8856},
+    year={2024},
+    url={https://openreview.net/forum?id=7VB5db72lr},
+}
+```
